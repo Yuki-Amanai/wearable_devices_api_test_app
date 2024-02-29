@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:health/health.dart';
-import 'dart:async';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -33,7 +31,7 @@ class MyHomePage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final testList = [1, 2, 3];
+    final testList = [1, 2, 3, 4];
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.secondary,
