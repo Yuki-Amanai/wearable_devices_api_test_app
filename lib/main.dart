@@ -1,76 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:health/health.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+void main() => runApp(MyApp());
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
 }
 
-final counterProvider = StateNotifierProvider<CounterNotifier, int>((ref) {
-  return CounterNotifier();
-});
+class _MyAppState extends State<MyApp> {
+  HealthFactory health = HealthFactory();
+  List<HealthDataPoint> _healthDataList = [];
+  bool _isFetching = false;
 
-class CounterNotifier extends StateNotifier<int> {
-  CounterNotifier() : super(0);
-
-  void increment() {
-    state++;
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
   }
-}
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  void fetchData() async {
+    DateTime startDate = DateTime.now();
+    DateTime endDate = DateTime.now();
+
+    setState(() {
+      _isFetching = true;
+    });
+
+    // 歩数データのタイプを指定
+    List<HealthDataType> types = [
+      HealthDataType.STEPS,
+      HealthDataType.HEART_RATE,
+      HealthDataType.RESTING_HEART_RATE,
+      HealthDataType.DISTANCE_WALKING_RUNNING,
+    ];
+    List<HealthDataPoint> healthData = [];
+
+    // データの取得
+    try {
+      bool accessGranted = await health.requestAuthorization(types);
+      if (accessGranted) {
+        healthData = await health.getHealthDataFromTypes(startDate, endDate, types);
+      }
+    } catch (e) {
+      print("Error fetching health data: $e");
+    }
+
+    // 取得したデータをフィルタリングしてリストに追加
+    _healthDataList = HealthFactory.removeDuplicates(healthData);
+    print(_healthDataList);
+
+    setState(() {
+      _isFetching = false;
+    });
+
+    // ここで次のポーリングをスケジュールします（例：60秒後）
+    Future.delayed(const Duration(seconds: 60)).then((_) {
+      if (mounted) {
+        fetchData();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.cyan,
-          brightness: Brightness.light,
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Health Data Fetch Example'),
         ),
-        useMaterial3: true,
+        body: Center(
+          child: _isFetching
+              ? const CircularProgressIndicator()
+              : Text('Steps Today: ${_healthDataList.fold<int>(0, (sum, item) => sum + int.parse(item.value.toString()))}'),
+        ),
       ),
-      home: const MyHomePage(title: ''),
     );
   }
 }
 
-class MyHomePage extends HookConsumerWidget {
-  const MyHomePage({required this.title, Key? key}) : super(key: key);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final counter = ref.watch(counterProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        title: Text(title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ref.read(counterProvider.notifier).increment();
-        },
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
