@@ -1,7 +1,7 @@
 .PHONY: setup
 setup:
-	flutter clean
-	flutter pub get
+	fvm flutter clean
+	fvm flutter pub get
 
 .PHONY: list
 list:

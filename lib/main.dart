@@ -1,62 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:health/health.dart';
-import 'package:wearable_devices_api_test_app/view_model/health_view_model.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+void main() => runApp(MyApp());
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class _MyAppState extends State<MyApp> {
+  HealthFactory health = HealthFactory();
+  List<HealthDataPoint> _healthDataList = [];
+  bool _isFetching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  void fetchData() async {
+    DateTime startDate = DateTime.now();
+    DateTime endDate = DateTime.now();
+
+    setState(() {
+      _isFetching = true;
+    });
+
+    // 歩数データのタイプを指定
+    List<HealthDataType> types = [
+      HealthDataType.STEPS,
+      HealthDataType.HEART_RATE,
+      HealthDataType.RESTING_HEART_RATE,
+      HealthDataType.DISTANCE_WALKING_RUNNING,
+    ];
+    List<HealthDataPoint> healthData = [];
+
+    // データの取得
+    try {
+      bool accessGranted = await health.requestAuthorization(types);
+      if (accessGranted) {
+        healthData = await health.getHealthDataFromTypes(startDate, endDate, types);
+      }
+    } catch (e) {
+      print("Error fetching health data: $e");
+    }
+
+    // 取得したデータをフィルタリングしてリストに追加
+    _healthDataList = HealthFactory.removeDuplicates(healthData);
+    print(_healthDataList);
+
+    setState(() {
+      _isFetching = false;
+    });
+
+    // ここで次のポーリングをスケジュールします（例：60秒後）
+    Future.delayed(const Duration(seconds: 60)).then((_) {
+      if (mounted) {
+        fetchData();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.grey,
-          brightness: Brightness.light,
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Health Data Fetch Example'),
         ),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'テスト'),
-    );
-  }
-}
-
-class MyHomePage extends HookConsumerWidget {
-  const MyHomePage({required this.title, Key? key}) : super(key: key);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final healthData = ref.watch(healthProvider);
-    final testList = [1, 2, 3, 4, 5];
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        title: Text(title),
-      ),
-      body: Center(
-        child: ListView.builder(
-          itemCount: testList.length,
-            itemBuilder: (context, index) {
-              return SizedBox(
-                height: 50,
-                child: Center(
-                  child: Text(testList[index].toString())
-                ),
-              );
-        }),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        body: Center(
+          child: _isFetching
+              ? const CircularProgressIndicator()
+              : Text('Steps Today: ${_healthDataList.fold<int>(0, (sum, item) => sum + int.parse(item.value.toString()))}'),
+        ),
       ),
     );
   }
 }
+
