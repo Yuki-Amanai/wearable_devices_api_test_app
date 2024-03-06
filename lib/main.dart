@@ -9,14 +9,15 @@ void main() {
 }
 
 class HealthDataNotifier extends StateNotifier<List<HealthDataPoint>> {
-  HealthFactory health = HealthFactory();
+  final health = HealthFactory();
 
   HealthDataNotifier() : super([]) {
     fetchData();
   }
 
   void fetchData() async {
-    DateTime startDate = DateTime.now();
+    DateTime now = DateTime.now();
+    DateTime startDate = DateTime.now().subtract(const Duration(days: 1));
     DateTime endDate = DateTime.now();
     List<HealthDataType> types = [
       HealthDataType.STEPS,
@@ -35,7 +36,7 @@ class HealthDataNotifier extends StateNotifier<List<HealthDataPoint>> {
     }
 
     // 次のポーリングをスケジュール
-    Future.delayed(const Duration(seconds: 60), fetchData);
+    Future.delayed(const Duration(minutes: 30), fetchData);
   }
 }
 
@@ -45,16 +46,26 @@ class MyApp extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final healthData = ref.watch(healthDataProvider);
-
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Health Data Fetch Example'),
+          title: const Text('ヘルスケアテスト'),
         ),
         body: Center(
-          child: healthData.isEmpty
-              ? const CircularProgressIndicator()
-              : Text('Steps Today: ${healthData.fold<int>(0, (sum, item) => sum + int.parse(item.value.toString()))}'),
+          child : healthData.isEmpty
+            ? const Center(child: Text('データがありません',))
+              : ListView.builder(
+            physics:const ScrollPhysics(),
+              itemCount: healthData.length,
+              itemBuilder: (_, index) {
+                final health = healthData[index];
+                print(health);
+                return ListTile(
+                  title: Text("${health.typeString}: ${health.value}"),
+                  trailing: Text('${health.unitString} '),
+                  subtitle: Text('${health.dateFrom} - ${health.dateTo}'),
+                );
+    }),
         ),
       ),
     );
