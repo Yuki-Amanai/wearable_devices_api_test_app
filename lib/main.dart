@@ -8,15 +8,14 @@ void main() {
   );
 }
 
-class HealthDataNotifier extends StateNotifier<List<HealthDataPoint>> {
+class HealthDataNotifier extends StateNotifier<AsyncValue<List<HealthDataPoint>>> {
   final health = HealthFactory();
 
-  HealthDataNotifier() : super([]) {
+  HealthDataNotifier() : super(const AsyncLoading()) {
     fetchData();
   }
 
   void fetchData() async {
-    DateTime now = DateTime.now();
     DateTime startDate = DateTime.now().subtract(const Duration(days: 1));
     DateTime endDate = DateTime.now();
     List<HealthDataType> types = [
@@ -29,18 +28,18 @@ class HealthDataNotifier extends StateNotifier<List<HealthDataPoint>> {
       bool accessGranted = await health.requestAuthorization(types);
       if (accessGranted) {
         List<HealthDataPoint> healthData = await health.getHealthDataFromTypes(startDate, endDate, types);
-        state = HealthFactory.removeDuplicates(healthData);
+        state = AsyncData(HealthFactory.removeDuplicates(healthData));
       }
     } catch (e) {
-      print("Error fetching health data: $e");
+      print(("Error fetching health data: $e"));
     }
 
     // 次のポーリングをスケジュール
-    Future.delayed(const Duration(minutes: 30), fetchData);
+    Future.delayed(const Duration(seconds: 20), fetchData);
   }
 }
 
-final healthDataProvider = StateNotifierProvider.autoDispose<HealthDataNotifier, List<HealthDataPoint>>((ref) => HealthDataNotifier());
+final healthDataProvider = StateNotifierProvider.autoDispose<HealthDataNotifier, AsyncValue<List<HealthDataPoint>>>((ref) => HealthDataNotifier());
 
 class MyApp extends HookConsumerWidget {
   @override
@@ -52,20 +51,23 @@ class MyApp extends HookConsumerWidget {
           title: const Text('ヘルスケアテスト'),
         ),
         body: Center(
-          child : healthData.isEmpty
-            ? const Center(child: Text('データがありません',))
-              : ListView.builder(
-            physics:const ScrollPhysics(),
-              itemCount: healthData.length,
-              itemBuilder: (_, index) {
-                final health = healthData[index];
-                print(health);
-                return ListTile(
-                  title: Text("${health.typeString}: ${health.value}"),
-                  trailing: Text('${health.unitString} '),
-                  subtitle: Text('${health.dateFrom} - ${health.dateTo}'),
-                );
-    }),
+          child : healthData.when(data: (data) {
+            final healthList = healthData.valueOrNull ?? [];
+            return  ListView.builder(
+                physics:const ScrollPhysics(),
+                itemCount: healthList.length,
+                itemBuilder: (_, index) {
+                  final health = healthList[index];
+                  return ListTile(
+                    title: Text("${health.typeString}: ${health.value}"),
+                    trailing: Text('${health.unitString} '),
+                    subtitle: Text('${health.dateFrom} - ${health.dateTo}'),
+                  );
+                });
+          }, error:(e, stacktrace) => Text(e.toString()),
+              loading: () => const Center(
+                child:  CircularProgressIndicator(),
+              )),
         ),
       ),
     );
