@@ -3,19 +3,38 @@ import 'package:health/health.dart';
 
 final healthDataProvider = StateNotifierProvider.autoDispose<HealthDataNotifier, AsyncValue<List<HealthDataPoint>>>((ref) => HealthDataNotifier());
 
+DateTime startDate = DateTime.now().subtract(const Duration(days: 1));
+DateTime endDate = DateTime.now();
+
+
+String getHealthDataTypeLabel(String type) {
+  switch (type) {
+    case 'STEPS':
+      return '徒歩数';
+    case 'HEART_RATE':
+      return '心拍数';
+    case'RESTING_HEART_RATE':
+      return '安静時心拍数';
+  // 他のケースに対応する必要があれば、ここに追加
+    default:
+      return 'その他';
+  }
+}
+
+final getTotalStepsProvider = FutureProvider.autoDispose((ref) async {
+  final test = await health.getTotalStepsInInterval(startDate, endDate);
+  return test;
+});
+
+final health = HealthFactory();
+
 class HealthDataNotifier extends StateNotifier<AsyncValue<List<HealthDataPoint>>> {
 
   HealthDataNotifier() : super(const AsyncLoading()) {
     fetchData();
   }
-
-  final health = HealthFactory();
-
   /// ヘルスデータを取得
   Future<void> fetchData() async {
-    DateTime startDate = DateTime.now().subtract(const Duration(days: 1));
-    print(startDate);
-    DateTime endDate = DateTime.now();
     List<HealthDataType> types = [
       HealthDataType.STEPS,
       HealthDataType.HEART_RATE,
@@ -30,10 +49,10 @@ class HealthDataNotifier extends StateNotifier<AsyncValue<List<HealthDataPoint>>
         state = AsyncData(HealthFactory.removeDuplicates(healthData));
       }
     } catch (e) {
-      print(("エラー。ヘルスデータを取得できません: $e"));
+      throw "エラー。ヘルスデータを取得できませんでした: $e";
     }
 
     // 次のポーリングをスケジュール
-    Future.delayed(const Duration(minutes: 5), fetchData);
+    Future.delayed(const Duration(seconds: 5), fetchData);
   }
 }
