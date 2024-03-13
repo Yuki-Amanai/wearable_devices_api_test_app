@@ -32,6 +32,7 @@ class MyApp extends HookConsumerWidget {
         body: Center(
           child : healthData.when(data: (data) {
             final healthList = healthData.valueOrNull ?? [];
+            print(healthList);
             return isSupported ?
             ListView.builder(
                 physics:const ScrollPhysics(),
